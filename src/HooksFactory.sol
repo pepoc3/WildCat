@@ -509,7 +509,9 @@ contract HooksFactory is SphereXProtectedRegisteredBase, ReentrancyGuard, IHooks
  *      其中第一个字包含长度字节和字符串的前 31 个字节，
  *      第二个字包含字符串的后 32 个字节。
  */
+//这种打包方法通常用于优化存储布局，特别是在需要频繁访问字符串数据的情况下。
   function _packString(string memory str) internal pure returns (bytes32 word0, bytes32 word1) {
+    //@audit 存在Gas漏洞
     assembly {
       //mload(str) 读取 str 指向的内存位置的前 32 字节。
       // 对于字符串，这正好是存储其长度的位置。
@@ -536,8 +538,15 @@ contract HooksFactory is SphereXProtectedRegisteredBase, ReentrancyGuard, IHooks
       // by reading from 31 bytes after the length pointer.
       //这行代码的目的是将字符串的长度和前 31 个字节打包到一个 32 字节的 word 中。
       //@audit 没看懂
+      //add(str, 0x1f):
+      // str 是指向字符串在内存中位置的指针。
+      // 0x1f 是十六进制的 31。
+      // 这个操作将指针向前移动 31 字节。
       word0 := mload(add(str, 0x1f))
       // If the string is less than 32 bytes, the second word will be zeroed out.
+      //0x3f 是十六进制的 63。 0x1f 是十六进制的 31。
+      //如果字符串长度 ≤ 31，word1 将为 0。
+      //如果字符串长度 > 31，word1 将包含字符串的后半部分。
       word1 := mul(mload(add(str, 0x3f)), gt(mload(str), 0x1f))
     }
   }
@@ -554,8 +563,13 @@ contract HooksFactory is SphereXProtectedRegisteredBase, ReentrancyGuard, IHooks
     if (IWildcatArchController(_archController).isBlacklistedAsset(parameters.asset)) {
       revert AssetBlacklisted();
     }
+    //从 HooksConfig 类型中提取 hooks 合约地址的操作
     address hooksInstance = parameters.hooks.hooksAddress();
-
+    //address(bytes20(salt)) == msg.sender: 检查 salt 的前 20 字节是否等于调用者的地址。
+    // bytes20(salt) == bytes20(0): 检查 salt 的前 20 字节是否全为 0。
+    // 如果这两个条件都不满足，函数会 revert 并抛出 SaltDoesNotContainSender() 错误。
+    //NOT (condition1 OR condition2)
+    //如果 salt 的前 20 字节既不等于 msg.sender，也不全为 0，则整个表达式为 true。
     if (!(address(bytes20(salt)) == msg.sender || bytes20(salt) == bytes20(0))) {
       revert SaltDoesNotContainSender();
     }
@@ -566,7 +580,7 @@ contract HooksFactory is SphereXProtectedRegisteredBase, ReentrancyGuard, IHooks
     ) {
       revert FeeMismatch();
     }
-
+    //收取发起费用：当创建新市场或执行某些操作时，收取预定义的费用。
     if (originationFeeAsset != address(0)) {
       originationFeeAsset.safeTransferFrom(
         msg.sender,

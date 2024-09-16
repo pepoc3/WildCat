@@ -186,6 +186,16 @@ library LibHooksConfig {
   /// @dev Address of the hooks contract
   function hooksAddress(HooksConfig hooks) internal pure returns (address _hooks) {
     assembly {
+      //hooks 是一个 HooksConfig 类型的变量，它是一个 256 位的整数。
+      // 在这个整数中，最高的 160 位（20 字节）用于存储 hooks 合约的地址。
+      // shr(96, hooks) 是一个位运算操作：
+      // shr 表示右移（shift right）
+      // 96 是右移的位数
+      // hooks 是要操作的值
+      // 4. 右移 96 位的原因是：
+      // 256 位（总位数）- 160 位（地址所需位数）= 96 位
+      // 右移 96 位正好将地址移动到最低位
+      // 这个操作的结果是一个 160 位的值，正好对应一个以太坊地址。
       _hooks := shr(96, hooks)
     }
   }

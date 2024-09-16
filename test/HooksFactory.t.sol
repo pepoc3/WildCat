@@ -524,74 +524,74 @@ function test_addHooksTemplate_ZeroFeeAmountNonZeroAsset() external {
     assertLt(block.number, deploymentBlock, "Block number should be less than original deployment block");
 }
 //@audit 区块重组测试函数
-function test_CriticalVulnerability_StateAndPermissionPersistence() external {
-    // 初始设置
-    archController.registerBorrower(address(this));
-    hooksFactory.addHooksTemplate(
-        hooksTemplate,
-        'VulnerableHooks',
-        address(0),
-        address(0),
-        0,
-        0
-    );
+// function test_CriticalVulnerability_StateAndPermissionPersistence() external {
+//     // 初始设置
+//     archController.registerBorrower(address(this));
+//     hooksFactory.addHooksTemplate(
+//         hooksTemplate,
+//         'VulnerableHooks',
+//         address(0),
+//         address(0),
+//         0,
+//         0
+//     );
 
-    // 创建快照
-    uint256 snapshot = vm.snapshot();
+//     // 创建快照
+//     uint256 snapshot = vm.snapshot();
 
-    // 部署初始 hooks 实例
-    bytes memory constructorArgs = 'initial deployment';
-    address initialHooks = hooksFactory.deployHooksInstance(hooksTemplate, constructorArgs);
-    MockHooks initialHooksInstance = MockHooks(initialHooks);
+//     // 部署初始 hooks 实例
+//     bytes memory constructorArgs = 'initial deployment';
+//     address initialHooks = hooksFactory.deployHooksInstance(hooksTemplate, constructorArgs);
+//     MockHooks initialHooksInstance = MockHooks(initialHooks);
 
-    // 设置初始状态和权限（使用 MockHooks 现有的功能）
-    initialHooksInstance.setAnnualInterestAndReserveRatioBips(1000, 2000);
-    HooksDeploymentConfig customConfig = encodeHooksDeploymentConfig(
-        encodeHooksConfig({
-            useOnDeposit: true,
-            useOnQueueWithdrawal: true,
-            useOnExecuteWithdrawal: true,
-            useOnTransfer: true,
-            useOnBorrow: true,
-            useOnRepay: true,
-            useOnCloseMarket: true,
-            useOnNukeFromOrbit: true,
-            useOnSetMaxTotalSupply: true,
-            useOnSetAnnualInterestAndReserveRatioBips: true,
-            useOnSetProtocolFeeBips: true,
-            hooksAddress: address(this)
-        }),
-        EmptyHooksConfig
-    );
-    initialHooksInstance.setConfig(customConfig);
+//     // 设置初始状态和权限（使用 MockHooks 现有的功能）
+//     initialHooksInstance.setAnnualInterestAndReserveRatioBips(1000, 2000);
+//     HooksDeploymentConfig customConfig = encodeHooksDeploymentConfig(
+//         encodeHooksConfig({
+//             useOnDeposit: true,
+//             useOnQueueWithdrawal: true,
+//             useOnExecuteWithdrawal: true,
+//             useOnTransfer: true,
+//             useOnBorrow: true,
+//             useOnRepay: true,
+//             useOnCloseMarket: true,
+//             useOnNukeFromOrbit: true,
+//             useOnSetMaxTotalSupply: true,
+//             useOnSetAnnualInterestAndReserveRatioBips: true,
+//             useOnSetProtocolFeeBips: true,
+//             hooksAddress: address(this)
+//         }),
+//         EmptyHooksConfig
+//     );
+//     initialHooksInstance.setConfig(customConfig);
 
-    // 验证初始状态
-    assertEq(initialHooksInstance.annualInterestBipsToReturn(), 1000, "Initial annual interest should be 1000");
-    assertTrue(initialHooksInstance.config().optionalFlags.useOnDeposit(), "Deployer should have deposit privilege");
+//     // 验证初始状态
+//     assertEq(initialHooksInstance.annualInterestBipsToReturn(), 1000, "Initial annual interest should be 1000");
+//     assertTrue(initialHooksInstance.config().optionalFlags.useOnDeposit(), "Deployer should have deposit privilege");
 
-    // 模拟区块重组
-    vm.revertTo(snapshot);
+//     // 模拟区块重组
+//     vm.revertTo(snapshot);
 
-    // 重新部署 hooks 实例
-    address reorgHooks = hooksFactory.deployHooksInstance(hooksTemplate, constructorArgs);
-    MockHooks reorgHooksInstance = MockHooks(reorgHooks);
+//     // 重新部署 hooks 实例
+//     address reorgHooks = hooksFactory.deployHooksInstance(hooksTemplate, constructorArgs);
+//     MockHooks reorgHooksInstance = MockHooks(reorgHooks);
 
-    // 验证关键漏洞：状态和权限是否持久化
-    assertEq(reorgHooksInstance.annualInterestBipsToReturn(), 0, "Annual interest should be reset to 0 after reorg");
-    assertFalse(reorgHooksInstance.config().optionalFlags.useOnDeposit(), "Deposit privilege should be reset after reorg");
+//     // 验证关键漏洞：状态和权限是否持久化
+//     assertEq(reorgHooksInstance.annualInterestBipsToReturn(), 0, "Annual interest should be reset to 0 after reorg");
+//     assertFalse(reorgHooksInstance.config().optionalFlags.useOnDeposit(), "Deposit privilege should be reset after reorg");
 
-    // 尝试使用持久化的权限执行特权操作
-    vm.prank(address(0xdead));  // 切换到一个未授权的地址
-    reorgHooksInstance.setAnnualInterestAndReserveRatioBips(2000, 3000);  // 这应该成功，因为 MockHooks 没有权限检查
+//     // 尝试使用持久化的权限执行特权操作
+//     vm.prank(address(0xdead));  // 切换到一个未授权的地址
+//     reorgHooksInstance.setAnnualInterestAndReserveRatioBips(2000, 3000);  // 这应该成功，因为 MockHooks 没有权限检查
 
-    assertEq(reorgHooksInstance.annualInterestBipsToReturn(), 2000, "Unauthorized address should not be able to change annual interest");
+//     assertEq(reorgHooksInstance.annualInterestBipsToReturn(), 2000, "Unauthorized address should not be able to change annual interest");
 
-    // 验证合约地址是否相同（在正确实现中应该不同）
-    assertNotEq(initialHooks, reorgHooks, "Hooks addresses should be different after reorg");
+//     // 验证合约地址是否相同（在正确实现中应该不同）
+//     assertNotEq(initialHooks, reorgHooks, "Hooks addresses should be different after reorg");
 
-    // 验证部署者是否仍然是原始部署者
-    assertEq(reorgHooksInstance.deployer(), address(this), "Deployer should be reset after reorg");
-}
+//     // 验证部署者是否仍然是原始部署者
+//     assertEq(reorgHooksInstance.deployer(), address(this), "Deployer should be reset after reorg");
+// }
 
   function test_deployHooksInstance_DeploymentFailed() external {
     archController.registerBorrower(address(this));
@@ -900,10 +900,13 @@ function test_CriticalVulnerability_StateAndPermissionPersistence() external {
   }
 
   function test_deployMarket_NameOrSymbolTooLong() external {
+    //添加hooks模板
     hooksFactory.addHooksTemplate(hooksTemplate, 'template', address(0), address(0), 0, 0);
+    //注册借款人
     archController.registerBorrower(address(this));
-
+    
     bytes memory constructorArgs = '';
+    //创建hooks实例
     MockHooks hooksInstance = _validateDeployHooksInstance(hooksTemplate, constructorArgs);
 
     bytes memory createMarketHooksData = 'o hey this is my createMarketHooksData do u like it';
@@ -924,13 +927,14 @@ function test_CriticalVulnerability_StateAndPermissionPersistence() external {
       hooks: EmptyHooksConfig.setHooksAddress(address(hooksInstance))
     });
     vm.expectRevert(IHooksFactoryEventsAndErrors.NameOrSymbolTooLong.selector);
+    //创建市场
     hooksFactory.deployMarket(parameters, createMarketHooksData, bytes32(uint(1)), address(0), 0);
     parameters.namePrefix = '';
     parameters.symbolPrefix = tooLongSymbolPrefix;
 
     vm.expectRevert(IHooksFactoryEventsAndErrors.NameOrSymbolTooLong.selector);
     hooksFactory.deployMarket(parameters, createMarketHooksData, bytes32(uint(1)), address(0), 0);
-
+    //确保最终的市场名称和符号（前缀 + 底层资产名称/符号）不超过 63 字节的限制。
     uint maxNamePrefixLength = 63 - bytes(underlying.name()).length;
     uint maxSymbolPrefixLength = 63 - bytes(underlying.symbol()).length;
     parameters.namePrefix = tooLongNamePrefix.slice(0, maxNamePrefixLength);
@@ -949,6 +953,68 @@ function test_CriticalVulnerability_StateAndPermissionPersistence() external {
       'symbol'
     );
   }
+//@audit _packString测试gas漏洞
+function test_deployMarket_63BytesNamePrefix() external {
+    // 设置必要的前提条件
+    // address hooksTemplate = address(0x123);
+    hooksFactory.addHooksTemplate(hooksTemplate, 'template', address(0), address(0), 0, 0);
+    archController.registerBorrower(address(this));
+    
+
+    // 创建一个 MockHooks 实例
+    bytes memory constructorArgs = '';
+    MockHooks hooksInstance = _validateDeployHooksInstance(hooksTemplate, constructorArgs);
+
+    // 创建一个刚好 63 字节长的名称前缀
+    // string memory exactNamePrefix = "";//123456789012345678901234567890123456789012345678901234567890123
+    // assert(bytes(exactNamePrefix).length == 63);
+     bytes memory exactNamePrefix = new bytes(64);
+    assembly {
+        // 设置一个错误的长度
+        mstore(exactNamePrefix, 0xFFFFFFFF)
+        // 在数据部分写入一些字节
+        mstore(add(exactNamePrefix, 32), 0x48656C6C6F) // "Hello" in hex
+    }
+    // 准备部署市场的参数
+    DeployMarketInputs memory parameters = DeployMarketInputs({
+        asset: address(underlying),
+        namePrefix: string(exactNamePrefix),
+        symbolPrefix: "TST",
+        maxTotalSupply: type(uint128).max,
+        annualInterestBips: 1000,
+        delinquencyFeeBips: 1000,
+        withdrawalBatchDuration: 10000,
+        reserveRatioBips: 10000,
+        delinquencyGracePeriod: 10000,
+        hooks: EmptyHooksConfig.setHooksAddress(address(hooksInstance))
+    });
+
+    bytes memory hooksData = "";
+    bytes32 salt = bytes32(uint256(1));
+
+    // 部署市场
+    address market = hooksFactory.deployMarket(parameters, hooksData, salt, address(0), 0);
+
+    // 验证市场是否成功部署
+    assertTrue(market != address(0), "Market should be deployed");
+
+    // 获取部署的市场合约
+    WildcatMarket deployedMarket = WildcatMarket(market);
+
+    // 验证市场名称
+    string memory expectedName = string(abi.encodePacked(exactNamePrefix, underlying.name()));
+    assertEq(deployedMarket.name(), expectedName, "Market name should be correct");
+
+    // 验证市场符号
+    string memory expectedSymbol = string(abi.encodePacked("TST", underlying.symbol()));
+    assertEq(deployedMarket.symbol(), expectedSymbol, "Market symbol should be correct");
+
+    // 额外的检查：确保没有发生任何意外的内存读取
+    // 这里我们可以检查市场的其他属性，确保它们都被正确设置
+    assertEq(address(deployedMarket.asset()), address(underlying), "Asset should be correct");
+    assertEq(deployedMarket.borrower(), address(this), "Borrower should be correct");
+    // 可以添加更多的断言来检查其他市场参数
+}
 
   function test_deployMarket_MarketAlreadyExists() external {
     hooksFactory.addHooksTemplate(hooksTemplate, 'template', address(0), address(0), 0, 0);
